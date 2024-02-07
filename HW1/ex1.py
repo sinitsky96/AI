@@ -18,7 +18,7 @@ class OnePieceProblem(search.Problem):
         current_map = initial["map"]
         marine_ships = self.create_marine_ships(initial)
 
-        initial = [pirate_ships, marine_ships, treasure_lookup, current_map]
+        initial = (pirate_ships, marine_ships, treasure_lookup, current_map)
         actions= self.actions(initial)
         print(actions)
 
@@ -44,11 +44,20 @@ class OnePieceProblem(search.Problem):
         """ Given a state, checks if this is the goal state.
          Returns True if it is, False otherwise."""
 
-    def h(self, node):
+    def h1(self, node):
         """ This is the heuristic. It gets a node (not a state,
         state can be accessed via node.state)
-        and returns a goal distance estimate"""
-        return 0
+        and returns a goal distance estimate
+        number of uncollected treasures divided by the number of pirates."""
+        treasure_lookup= node.state[2]
+        num_of_pirates= len(node.state[0])
+        #num of treasure where collected is no
+        uncollected=0
+        for treasure in treasure_lookup:
+            if treasure_lookup[treasure]["collected"]=="no":
+                uncollected+=1
+
+        return uncollected/num_of_pirates
 
     """Feel free to add your own functions
     (-2, -2, None) means there was a timeout"""

@@ -39,10 +39,64 @@ class OnePieceProblem(search.Problem):
         """Return the state that results from executing the given
         action in the given state. The action must be one of
         self.actions(state)."""
+        pirate_ships, marine_ships, treasure_lookup, current_map = state
+
+        if action[0] == "sail":
+            pirate_ships[action[1]]["location"] = action[2]
+        elif action[0] == "collect_treasure":
+            self.collect_treasure(action, pirate_ships, treasure_lookup)
+        elif action[0] == "wait":
+            pass
+        elif action[0] == "deposit_treasure":
+            self.deposit_treasure(action, pirate_ships, treasure_lookup)
+
+        new_marine=self.move_marine_ship(state)
+
+        self.check_colli_with_marine(action, new_marine, pirate_ships, treasure_lookup)
+
+        return pirate_ships, new_marine, treasure_lookup, current_map
+
+    def deposit_treasure(self, action, pirate_ships, treasure_lookup):
+        ship = pirate_ships[action[1]]
+        for treasure in treasure_lookup:
+            if treasure in ship["loaded_treasure_name"]:
+                treasure_lookup[treasure]["collected"] = "yes"
+                ship["load"] -= 1
+        ship["loaded_treasure_name"] = []
+
+    def collect_treasure(self, action, pirate_ships, treasure_lookup):
+        ship = pirate_ships[action[1]]
+        if ship["load"] >= 2:
+            pass
+        treasure_lookup[action[2]]["collected"] = "pending"
+        ship["load"] += 1
+        ship["loaded_treasure_name"].append(action[2])
+
+    def check_colli_with_marine(self, action, new_marine, pirate_ships, treasure_lookup):
+        for marine in new_marine:
+            if new_marine[marine]["location"] == action[2]:
+                for treasure in pirate_ships[action[1]]["loaded_treaure_name"]:
+                    pirate_ships[action[1]]["load"] -= 1
+                    treasure_lookup[treasure] = "no"
+                pirate_ships[action[1]]["loaded_treaure_name"] = []
 
     def goal_test(self, state):
         """ Given a state, checks if this is the goal state.
          Returns True if it is, False otherwise."""
+        pass
+    def h(self, node):
+        """ This is the heuristic. It gets a node (not a state,
+        state can be accessed via node.state)
+        and returns a goal distance estimate"""
+        total_time = 0
+        for treasure_position in self.locate_treasures(node.state):
+
+
+
+
+
+
+        return total_time
 
     def h1(self, node):
         """ This is the heuristic. It gets a node (not a state,
@@ -79,7 +133,7 @@ class OnePieceProblem(search.Problem):
         pirate_ships = {}
         for i in range(number_of_ships):
             pirate_ships[f"pirate_{i + 1}"] = {"location": pirate_base_location, "load": 0,
-                                               "loaded_treaure_location": []}
+                                               "loaded_treaure_name": []}
         return pirate_ships
 
     def create_treasure_lookup(self, initial):

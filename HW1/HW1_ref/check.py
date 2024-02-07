@@ -24,7 +24,7 @@ def timeout_exec(func, args=(), kwargs={}, timeout_duration=10, default=None):
     it = InterruptableThread()
     it.start()
     it.join(timeout_duration)
-    if it.isAlive():
+    if it.is_alive():
         return default
     else:
         return it.result
@@ -69,7 +69,7 @@ def solve_problems(problems):
 
 
 def main():
-    print(ex1.ids)
+    # print(ex1.ids)
     """Here goes the input you want to check"""
     problems = [
 
@@ -78,14 +78,7 @@ def main():
         ),
 
         (
-            (11,	10,    30,	  70),
-        )
-
-        (
-            (11,    10,    10,    10),
-            (30,    30,    30,    30),
-            (12,    20,    60,    70),
-            (10,    10,    10,    10),
+            (11, 10, 30, 70),
         ),
 
         (

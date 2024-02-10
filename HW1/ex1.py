@@ -13,8 +13,7 @@ class OnePieceProblem(search.Problem):
         You should change the initial to your own representation.
         search.Problem.__init__(self, initial) creates the root node"""
         treasure_lookup = self.create_treasure_lookup(initial)
-        pirate_ships = self.create_pirate_ships(initial["pirate_ships"]["pirate_ship_1"],
-                                                1)
+        pirate_ships = self.create_pirate_ships(initial["pirate_ships"]["pirate_ship_1"], 1)
         marine_ships = self.create_marine_ships(initial)
         distance_map = self.mapout(initial, treasure_lookup)
         original_map = tuple(tuple(inner_list) for inner_list in initial["map"])
@@ -25,38 +24,69 @@ class OnePieceProblem(search.Problem):
         """Returns all the actions that can be executed in the given
         state. The result should be a tuple (or other iterable) of actions
         as defined in the problem description file"""
-        movements = self.pirate_sailing_options(state)
-        loadings = self.pirate_loading_options(state)
-        waitings = self.pirate_waiting_options(state)
-        unloadings = self.pirate_unloading_options(state)
-        return movements + loadings + waitings + unloadings
+        pirates = state[0]
+        actions = []
+        output_actions = ()
+        for p in range(len(pirates)):
+            movements_out = self.pirate_sailing_options(state, p)
+            loadings_out = self.pirate_loading_options(state, p)
+            waitings_out = self.pirate_waiting_options(state, p)
+            unloadings_out = self.pirate_unloading_options(state, p)
+            actions.append(movements_out + loadings_out + waitings_out + unloadings_out)
+        if len(pirates) > 1:
+            for i in range(len(actions)):
+                for ii in range(len(actions[i])):
+                    for j in range(i + 1, len(actions)):
+                        for jj in range(len(actions[j])):
+                            output_actions += (((actions[i][ii]), (actions[j][jj])),)
+        else:
+            output_actions = actions[0]
+
+        return output_actions
 
     def result(self, state, action):
         """Return the state that results from executing the given
         action in the given state. The action must be one of
         self.actions(state)."""
         pirate_ships, marine_ships, treasure_lookup, current_map, original_map = state
-
-        if action[0] == "sail":
-            pirate_ship_list = list(pirate_ships)
-            ship = pirate_ships[int(action[1].split("_")[1]) - 1]
-            name, location, load, loaded_treasure_name, pirate_base = ship
-            location = action[2]
-            ship = (name, location, load, loaded_treasure_name, pirate_base)
-            pirate_ship_list[int(action[1].split("_")[1]) - 1] = ship
-            pirate_ships = tuple(pirate_ship_list)
-        elif action[0] == "collect_treasure":
-            pirate_ships, treasure_lookup = self.collect_treasure(action, pirate_ships, treasure_lookup)
-        elif action[0] == "wait":
-            pass
-        elif action[0] == "deposit_treasure":
-            pirate_ships, treasure_lookup = self.deposit_treasure(action, pirate_ships, treasure_lookup)
-
         new_marine = self.move_marine_ship(state)
 
-        pirate_ships, treasure_lookup = self.check_colli_with_marine(action, new_marine, pirate_ships, treasure_lookup)
+        # if action is a tuple of tuples
+        if isinstance(action[0], tuple):
+            for act in action:
+                if act[0] == "sail":
+                    pirate_ships = self.move_pirate_ship(act, pirate_ships)
+                    x=1
+                elif act[0] == "collect_treasure":
+                    pirate_ships, treasure_lookup = self.collect_treasure(act, pirate_ships, treasure_lookup)
+                elif act[0] == "wait":
+                    pass
+                elif act[0] == "deposit_treasure":
+                    pirate_ships, treasure_lookup = self.deposit_treasure(act, pirate_ships, treasure_lookup)
 
-        return pirate_ships, new_marine, treasure_lookup, current_map, original_map
+            pirate_ships, treasure_lookup = self.check_colli_with_marine(new_marine, pirate_ships,
+                                                                         treasure_lookup)
+        else:
+            if action[0] == "sail":
+                pirate_ships = self.move_pirate_ship(action, pirate_ships)
+            elif action[0] == "collect_treasure":
+                pirate_ships, treasure_lookup = self.collect_treasure(action, pirate_ships, treasure_lookup)
+            elif action[0] == "wait":
+                pass
+            elif action[0] == "deposit_treasure":
+                pirate_ships, treasure_lookup = self.deposit_treasure(action, pirate_ships, treasure_lookup)
+            pirate_ships, treasure_lookup = self.check_colli_with_marine(new_marine, pirate_ships, treasure_lookup)
+        state = (pirate_ships, new_marine, treasure_lookup, current_map, original_map)
+        return state
+
+
+    def move_pirate_ship(self, action, pirate_ships):
+        ship = pirate_ships[int(action[1].split("_")[1]) - 1]
+        location = action[2]
+        pirate_ships = tuple(
+                (ship[0], location, ship[2], ship[3], ship[4]) if i + 1 == ship[0] else pirate_ships[i] for i in
+                range(len(pirate_ships)))
+        return pirate_ships
 
     def deposit_treasure(self, action, pirate_ships, treasure_lookup):
         ship = pirate_ships[int(action[1].split("_")[1]) - 1]
@@ -83,12 +113,12 @@ class OnePieceProblem(search.Problem):
             in range(len(pirate_ships)))
         return pirate_ships, treasure_lookup
 
-    def check_colli_with_marine(self, action, new_marine, pirate_ships, treasure_lookup):
+    def check_colli_with_marine(self, new_marine, pirate_ships, treasure_lookup):
         pirate_ships_updated = pirate_ships
         treasure_lookup_updated = treasure_lookup
         for m in range(len(new_marine)):
             for p in range(len(pirate_ships)):
-                if new_marine[m][1] == pirate_ships[p][1] and action[0] != "deposit_treasure":
+                if new_marine[m][1] == pirate_ships[p][1] and pirate_ships[p][2] > 0:
                     for t in range(len(pirate_ships[p][3])):
                         treasure = int(pirate_ships[p][3][t].split("_")[1])
                         treasure_lookup_updated = tuple(
@@ -100,11 +130,7 @@ class OnePieceProblem(search.Problem):
                         for i in range(len(pirate_ships)))
         return pirate_ships_updated, treasure_lookup_updated
 
-        # if new_marine[m][1] == action[2] and action[0] != "deposit_treasure":
-        #     for treasure in pirate_ships[action[1]]["loaded_treaure_name"]:
-        #         pirate_ships[action[1]]["load"] -= 1
-        #         treasure_lookup[treasure] = "no"
-        #     pirate_ships[action[1]]["loaded_treaure_name"] = []
+
 
     def goal_test(self, state):
         """ Given a state, checks if this is the goal state.
@@ -119,36 +145,21 @@ class OnePieceProblem(search.Problem):
         """ This is the heuristic. It gets a node (not a state,
         state can be accessed via node.state)
         and returns a goal distance estimate"""
-        alpha=0.3
-        return self.h2(node)*(1-alpha) + self.h1(node)*alpha
-
-        # pirate = node.state[0][0]
-        # treasures = node.state[2]
-        # if node.parent != None:
-        #     parent_pirate_load = node.parent.state[0][0][2]
-        # else:
-        #     parent_pirate_load = 0
-        #
-        # count = 0
-        # load = pirate[2]
-        # for t in range(len(treasures)):
-        #     if treasures[t][1] == pirate[1] and treasures[t][2] == 0 and load == 2 and parent_pirate_load == 2:
-        #         count += 1
-        #     if treasures[t][1] == pirate[1] and treasures[t][2] == 0 and load == 2 and parent_pirate_load == 1:
-        #         count += 0
-        #
-        # return count * load
-
-        # val=0
-        # pirate = node.state[0][0]
-        # treasures = node.state[2]
-        # load = pirate[2]
-        # for t in range(len(treasures)):
-        #     if treasures[t][1] == pirate[1] and treasures[t][2] == 0:
-        #         val=load
-        #     elif treasures[t][2] !=0:
-        #         val = math.inf
-        # return val
+        locations = ()
+        for p in node.state[0]:
+            locations += (p[1],)
+        value = ()
+        if len(locations) >1:
+            for loc in locations:
+                value = value + (node.state[3][loc[0]][loc[1]],)
+        else:
+            value = (node.state[3][locations[0][0]][locations[0][1]],)
+        if not value:
+            return 0
+        elif len(node.state[0]) >= 15 and len(node.state[0][0]) >= 15:
+            return min(value)
+        else:
+            return min(value) + node.path_cost / (node.depth + 1) + len(locations)
 
 
     def h1(self, node):
@@ -192,8 +203,14 @@ class OnePieceProblem(search.Problem):
             px, py = pirate_base
             if self.surrounded(node.state[4], tx, ty):
                 return math.inf
-            else:
+            elif treasure[2] == 0:
                 manhattan_dist = self.manhattan_distance(tx, ty, px, py)
+                dist += manhattan_dist
+        for p in range(len(pirate_ships)):
+            if pirate_ships[p][2] > 0:
+                px, py = pirate_ships[p][1]
+                bx, by = pirate_base
+                manhattan_dist = self.manhattan_distance(bx, by, px, py)
                 dist += manhattan_dist
         return dist / len(pirate_ships)
 
@@ -339,22 +356,23 @@ class OnePieceProblem(search.Problem):
         # check if the ship is full
         return ship[2] >= 2
 
-    def pirate_sailing_options(self, state):
+    def pirate_sailing_options(self, state, p):
         # move the pirate ships
         pirate_ships = state[0]
         original_map = state[4]
         movements = ()
         map = state[3]
         for i in range(len(pirate_ships)):
-            x, y = pirate_ships[i][1]
-            if x - 1 >= 0 and original_map[x - 1][y] != "I":
-                movements += (("sail", f"pirate_{i + 1}", (x - 1, y)),)
-            if x + 1 < len(map) and original_map[x + 1][y] != "I":
-                movements += (("sail", f"pirate_{i + 1}", (x + 1, y)),)
-            if y - 1 >= 0 and original_map[x][y - 1] != "I":
-                movements += (("sail", f"pirate_{i + 1}", (x, y - 1)),)
-            if y + 1 < len(map[0]) and original_map[x][y + 1] != "I":
-                movements += (("sail", f"pirate_{i + 1}", (x, y + 1)),)
+            if i == p:
+                x, y = pirate_ships[i][1]
+                if x - 1 >= 0 and original_map[x - 1][y] != "I":
+                    movements += (("sail", f"pirate_{i + 1}", (x - 1, y)),)
+                if x + 1 < len(map) and original_map[x + 1][y] != "I":
+                    movements += (("sail", f"pirate_{i + 1}", (x + 1, y)),)
+                if y - 1 >= 0 and original_map[x][y - 1] != "I":
+                    movements += (("sail", f"pirate_{i + 1}", (x, y - 1)),)
+                if y + 1 < len(map[0]) and original_map[x][y + 1] != "I":
+                    movements += (("sail", f"pirate_{i + 1}", (x, y + 1)),)
         return movements
 
     def treasure_adjacent(self, treasure, ship):
@@ -366,33 +384,36 @@ class OnePieceProblem(search.Problem):
 
         return False
 
-    def pirate_loading_options(self, state):
+    def pirate_loading_options(self, state, pirate):
         # load the treasures
         loading_actions = ()
         pirate_ships = state[0]
         treasures = state[2]
         for p in range(len(pirate_ships)):
-            for t in range(len(treasures)):
-                if self.treasure_adjacent(treasures[t], pirate_ships[p]) and not self.is_ship_full(
-                        pirate_ships[p]):
-                    loading_actions += (("collect_treasure", f"pirate_{p + 1}", f"treasure_{t + 1}"),)
+            if p == pirate:
+                for t in range(len(treasures)):
+                    if self.treasure_adjacent(treasures[t], pirate_ships[p]) and not self.is_ship_full(
+                            pirate_ships[p]):
+                        loading_actions += (("collect_treasure", f"pirate_{p + 1}", f"treasure_{t + 1}"),)
         return loading_actions
 
-    def pirate_waiting_options(self, state):
+    def pirate_waiting_options(self, state, p):
         # wait for the next turn
         pirate_ships = state[0]
         waiting_actions = ()
-        for ship in pirate_ships:
-            waiting_actions += ("wait", ship)
+        for ship in range(len(pirate_ships)):
+            if ship == p:
+                waiting_actions += (("wait", f"pirate_{ship + 1}"),)
         return waiting_actions
 
-    def pirate_unloading_options(self, state):
+    def pirate_unloading_options(self, state, pirate):
         # unload the treasures
         pirate_ships = state[0]
         unloading_actions = ()
         for p in range(len(pirate_ships)):
-            if pirate_ships[p][2] > 0 and pirate_ships[p][1] == pirate_ships[p][4]:
-                unloading_actions += (("deposit_treasure", f"pirate_{p + 1}"),)
+            if p == pirate:
+                if pirate_ships[p][2] > 0 and pirate_ships[p][1] == pirate_ships[p][4]:
+                    unloading_actions += (("deposit_treasure", f"pirate_{p + 1}"),)
         return unloading_actions
 
 

@@ -1,6 +1,7 @@
 import search
 import random
 import math
+from itertools import product
 
 ids = ["111111111", "111111111"]
 
@@ -26,19 +27,14 @@ class OnePieceProblem(search.Problem):
         as defined in the problem description file"""
         pirates = state[0]
         actions = []
-        output_actions = ()
         for p in range(len(pirates)):
             movements_out = self.pirate_sailing_options(state, p)
             loadings_out = self.pirate_loading_options(state, p)
             waitings_out = self.pirate_waiting_options(state, p)
             unloadings_out = self.pirate_unloading_options(state, p)
-            actions.append(loadings_out + unloadings_out+ movements_out +waitings_out  )
+            actions.append(unloadings_out+loadings_out+movements_out + waitings_out)
         if len(pirates) > 1:
-            for i in range(len(actions)):
-                for ii in range(len(actions[i])):
-                    for j in range(i + 1, len(actions)):
-                        for jj in range(len(actions[j])):
-                            output_actions += (((actions[i][ii]), (actions[j][jj])),)
+            output_actions = tuple(product(*actions))
         else:
             output_actions = actions[0]
 

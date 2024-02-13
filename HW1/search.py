@@ -185,5 +185,5 @@ def astar_search(problem, h=None):
     # Function to calculate f(n) = g(n) + h(n)
     # Memoize this function for better performance
     f = memoize(lambda n: n.path_cost + h(n), 'f')
-    return best_first_graph_search(problem, lambda n: n.path_cost + f(n))
+    return best_first_graph_search(problem, lambda n: f(n))
 

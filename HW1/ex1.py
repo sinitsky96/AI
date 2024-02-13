@@ -13,7 +13,7 @@ class OnePieceProblem(search.Problem):
         You should change the initial to your own representation.
         search.Problem.__init__(self, initial) creates the root node"""
         treasure_lookup = self.create_treasure_lookup(initial)
-        pirate_ships = self.create_pirate_ships(initial["pirate_ships"]["pirate_ship_1"], 1)
+        pirate_ships = self.create_pirate_ships(initial["pirate_ships"]["pirate_ship_1"], len(initial["pirate_ships"]))
         marine_ships = self.create_marine_ships(initial)
         distance_map = self.mapout(initial, treasure_lookup)
         original_map = tuple(tuple(inner_list) for inner_list in initial["map"])
@@ -32,7 +32,7 @@ class OnePieceProblem(search.Problem):
             loadings_out = self.pirate_loading_options(state, p)
             waitings_out = self.pirate_waiting_options(state, p)
             unloadings_out = self.pirate_unloading_options(state, p)
-            actions.append(movements_out + loadings_out + waitings_out + unloadings_out)
+            actions.append(loadings_out + unloadings_out+ movements_out +waitings_out  )
         if len(pirates) > 1:
             for i in range(len(actions)):
                 for ii in range(len(actions[i])):
@@ -145,22 +145,38 @@ class OnePieceProblem(search.Problem):
         """ This is the heuristic. It gets a node (not a state,
         state can be accessed via node.state)
         and returns a goal distance estimate"""
-        locations = ()
-        for p in node.state[0]:
-            locations += (p[1],)
-        value = ()
-        if len(locations) >1:
-            for loc in locations:
-                value = value + (node.state[3][loc[0]][loc[1]],)
-        else:
-            value = (node.state[3][locations[0][0]][locations[0][1]],)
-        if not value:
-            return 0
-        elif len(node.state[0]) >= 15 and len(node.state[0][0]) >= 15:
-            return min(value)
-        else:
-            return min(value) + node.path_cost / (node.depth + 1) + len(locations)
 
+        return self.h3(node)+self.h1(node)
+
+    def empty_island(self, state, location):
+        for t in range(len(state[2])):
+            if state[2][t][1] == location:
+                if state[2][t][2] == 0:
+                    return False
+
+        return True
+    def h3(self, node):
+        """
+        number of pirates that are adjacent to an empty island
+        """
+        pirate_ships = node.state[0]
+        map = node.state[4]
+        adjacent = 0
+        for p in range(len(pirate_ships)):
+            x, y = pirate_ships[p][1]
+            if x - 1 >= 0 and map[x - 1][y] == "I":
+                if self.empty_island(node.state, (x - 1, y)):
+                    adjacent += 1
+            if x + 1 < len(map) and map[x + 1][y] == "I":
+                if self.empty_island(node.state, (x + 1, y)):
+                    adjacent += 1
+            if y - 1 >= 0 and map[x][y - 1] == "I":
+                if self.empty_island(node.state, (x, y - 1)):
+                    adjacent += 1
+            if y + 1 < len(map[0]) and map[x][y + 1] == "I":
+                if self.empty_island(node.state, (x, y + 1)):
+                    adjacent += 1
+        return adjacent
 
     def h1(self, node):
         """number of uncollected treasures divided by the number of pirates."""
